@@ -99,8 +99,31 @@ void RFM_69_init(struct RFM_69_desc_t *descriptor,
 }
 
 void RFM_69_serivce(){
-	//is an interupt handler 
 	
+	/*checks the "payloadReady flag*/
+	if((Read_Reg(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY){
+		
+
+		/*must be in standby mode to read FIFO*/
+		SetMode(RF69_MODE_STANDBY)
+		/*first byte in the FIFO specifies the length of the message*/
+		payloadLength = Read_Reg(REG_FIFO);
+		
+		if(payloadLength > 66){
+			payloadLength = 66;
+			/*need to figure out how to handle larger packets, but 66 bytes should be plenty for our purposes */
+		}
+
+		/*FIFO currently: address byte, network byte, node byte DATA (what we want) */
+		dataLength = payloadLength - 3;
+		uint8_t[dataLength]
+		for(uint8_t i = 0; i<dataLength; i++){
+			data[i] = Read_Reg(REG_FIFO)
+		}
+		/*go back to listening. No need to manually clear the FIFO, it's done for us by the hardware*/
+		SetMode(RF69_MODE_RX);
+		
+	}
 	//if there has been a packet recieved 
 	//start to read that package 
 
