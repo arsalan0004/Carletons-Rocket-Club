@@ -16,6 +16,7 @@
 #define volatile uint8_t nodeID
 #define volatile uint8_t MessageCTB
 #define volatile uint64_t syncWord
+#define volatile uint8_t[dataLength + 1]  //extra register for holding RSSI value 
 
 
 define volatile uint8_t currentMode
@@ -98,7 +99,7 @@ void RFM_69_init(struct RFM_69_desc_t *descriptor,
    
 }
 
-void RFM_69_serivce(){
+void RFM_69_service(){
 	
 	/*checks the "payloadReady flag*/
 	if((Read_Reg(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY){
@@ -106,6 +107,10 @@ void RFM_69_serivce(){
 
 		/*must be in standby mode to read FIFO*/
 		SetMode(RF69_MODE_STANDBY)
+
+		/*disable interrupts*/
+		toggleInterrupts(0);
+
 		/*first byte in the FIFO specifies the length of the message*/
 		payloadLength = Read_Reg(REG_FIFO);
 		
@@ -119,9 +124,15 @@ void RFM_69_serivce(){
 		uint8_t[dataLength]
 		for(uint8_t i = 0; i<dataLength; i++){
 			data[i] = Read_Reg(REG_FIFO)
+
 		}
+		while(Read_Reg(Reg))
+		/*cap DATA with RSSI value*/
+		data[dataLength] = readRSSI();
+
 		/*go back to listening. No need to manually clear the FIFO, it's done for us by the hardware*/
 		SetMode(RF69_MODE_RX);
+
 		
 	}
 	//if there has been a packet recieved 
@@ -129,6 +140,16 @@ void RFM_69_serivce(){
 
 	
 
+}
+
+uint8_t ReadRSSI(){
+	/*initiate an RSSI reading*/
+	write_Reg(REG_RSSICONFIG, ( REG_RSSICONFIG | RF_RSSI_START)) 
+	
+	/*wait until RSSI measurement is ready*/
+	while(Read_Reg(REG_RSSICONFIG) & RF_RSSI_DONE != 0x4);
+
+	return Read_Reg(REG_RSSIVALUE);
 }
 
 
@@ -222,7 +243,7 @@ void SetMode(uint8_t opMode){
 			break;
 		case RF69_MODE_RX:
 			Write_Reg(REG_OPMODE, (Read_Reg(REG_OPMODE) & 0xE3) | RF_OPMODE_RECEIVER);
-			//should check rssi
+			
 			break;
 		case RF69_MODE_SYNTH:
 			Write_Reg(REG_OPMODE, (Read_Reg(REG_OPMODE) & 0xE3) | RF_OPMODE_SYNTHESIZER);
@@ -240,21 +261,6 @@ void SetMode(uint8_t opMode){
 	}
 
 }
-
-
-}
-void PacketRecieved(){
-	//disable interrupts 
-	//start extracting the stuff
-
-
-
-
-
-
-	//enable interrupts 
-	}
-
 
 
 
