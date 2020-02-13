@@ -11,6 +11,11 @@
 #include <RFM69registers.h>
 #include <sercom-spi.c>
 
+/*variables for SPI*/
+
+
+
+/*variables for radio transmission and recieving*/
 #define volatile uint8_t RFM69_boudrate 
 #define volatile uint8_t networkID
 #define volatile uint8_t nodeID
@@ -18,9 +23,10 @@
 #define volatile uint64_t syncWord
 #define volatile uint8_t[dataLength + 1]  //extra register for holding RSSI value 
 
-
+/*variables for operation*/
 define volatile uint8_t currentMode
 define volatile uint8_t interrupts
+
 
 
 void RFM_69_init(struct RFM_69_desc_t *descriptor,
@@ -100,9 +106,11 @@ void RFM_69_init(struct RFM_69_desc_t *descriptor,
 }
 
 void RFM_69_service(){
-	
+	/*called each cycle*/
+
+
 	/*checks the "payloadReady flag*/
-	if((Read_Reg(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY){
+	if((currentMode == RF_OPMODE_RECEIVER)&&(Read_Reg(REG_IRQFLAGS2) & RF_IRQFLAGS2_PAYLOADREADY)){
 		
 
 		/*must be in standby mode to read FIFO*/
@@ -128,7 +136,7 @@ void RFM_69_service(){
 		}
 		while(Read_Reg(Reg))
 		/*cap DATA with RSSI value*/
-		data[dataLength] = readRSSI();
+		data[dataLength] = MeasureRSSI();
 
 		/*go back to listening. No need to manually clear the FIFO, it's done for us by the hardware*/
 		SetMode(RF69_MODE_RX);
@@ -142,7 +150,7 @@ void RFM_69_service(){
 
 }
 
-uint8_t ReadRSSI(){
+uint8_t MeasureRSSI(){
 	/*initiate an RSSI reading*/
 	write_Reg(REG_RSSICONFIG, ( REG_RSSICONFIG | RF_RSSI_START)) 
 	
@@ -238,23 +246,32 @@ void SetMode(uint8_t opMode){
 	
 	switch(opMode){
 		case RF69_MODE_TX:
+
 			//only bits 4-2 in REG_OPMODE control the mode of the module. The rest are left alone
-			Write_Reg(REG_OPMODE, REG_OPMODE | RF_OPMODE_TRANSMITTER);
+			Write_Reg(REG_OPMODE, Read_Reg(REG_OPMODE) & 0xE3 | RF_OPMODE_TRANSMITTER);
+			currentMode = RF69_MODE_TX;
 			break;
+
 		case RF69_MODE_RX:
 			Write_Reg(REG_OPMODE, (Read_Reg(REG_OPMODE) & 0xE3) | RF_OPMODE_RECEIVER);
-			
+			currentMode = RF_OPMODE_RECEIVER;
 			break;
-		case RF69_MODE_SYNTH:
-			Write_Reg(REG_OPMODE, (Read_Reg(REG_OPMODE) & 0xE3) | RF_OPMODE_SYNTHESIZER);
-			break;
-		case RF69_MODE_STANDBY:
-			Write_Reg(REG_OPMODE, (Read_Reg(REG_OPMODE) & 0xE3) | RF_OPMODE_STANDBY | RF_OPMODE_LISTEN_ON);
 
-			break;
 		case RF69_MODE_SLEEP:
 			Write_Reg(REG_OPMODE, (Read_Reg(REG_OPMODE) & 0xE3) | RF_OPMODE_SLEEP);
+			currentMode = RF_OPMODE_SLEEP;
 			break;
+
+		case RF69_MODE_STANDBY:
+			Write_Reg(REG_OPMODE, (Read_Reg(REG_OPMODE) & 0xE3) | RF_OPMODE_STANDBY | RF_OPMODE_LISTEN_ON);
+			currentMode = RF_OPMODE_LISTEN_ON
+			break;
+
+		case RF69_MODE_SYNTH:
+			Write_Reg(REG_OPMODE, (Read_Reg(REG_OPMODE) & 0xE3) | RF_OPMODE_SYNTHESIZER);
+			currentMode = RF_OPMODE_SYNTHESIZER;
+			break;
+
 		default:
 			return;
 
