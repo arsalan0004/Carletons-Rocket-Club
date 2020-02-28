@@ -16,23 +16,25 @@
 
 
 /*variables for radio transmission and recieving*/
-#define volatile uint8_t RFM69_boudrate 
-#define volatile uint8_t networkID
-#define volatile uint8_t nodeID
-#define volatile uint8_t MessageCTB
-#define volatile uint64_t syncWord
-#define volatile uint8_t[dataLength + 1]  //extra register for holding RSSI value 
+#define volatile uint8_t RFM_69_BAUDRATE 
+#define volatile uint8_t NETWORK_ID
+#define volatile uint8_t NODEID
+#define volatile uint8_t MESSAGECBT
+#define volatile uint64_t SYNCWORD
 
 /*variables for operation*/
 define volatile uint8_t currentMode
 define volatile uint8_t interrupts
 
-
+ 
 
 void RFM_69_init(struct RFM_69_desc_t *descriptor,
                    struct sercom_spi_desc_t *spi_inst, uint32_t poll_period,
                    uint32_t cs_pin_mask, uint8_t cs_pin_group, uint8_t opMode)
 	{
+
+	/*ISSUE: NEED TO SET UP DESCRIPTOR*/
+
 	 
 	/*start in standby mode*/
 	Write_Reg(REG_OPMODE, RF_OPMODE_SEQUENCER_ON | RF_OPMODE_LISTEN_OFF | RF_OPMODE_STANDBY);
@@ -83,9 +85,9 @@ void RFM_69_init(struct RFM_69_desc_t *descriptor,
     Write_Reg(REG_SYNCCONFIG, RF_SYNC_ON | RF_SYNC_FIFOFILL_AUTO | RF_SYNC_SIZE_2 | RF_SYNC_TOL_0);
 
 	/*setting the sync Word and network ID and nodeID*/
-    Write_Reg(REG_SYNCVALUE1, syncWord);
-    Write_Reg(REG_SYNCVALUE2, networkID);
-	Write_Reg(REG_NODEADRS, nodeID);
+    Write_Reg(REG_SYNCVALUE1, SYNC_WORD);
+    Write_Reg(REG_SYNCVALUE2, NETWORK_ID);
+	Write_Reg(REG_NODEADRS, NODE);
 
 	/*1)allow address filter 2)set to variable length packet mode 3)turn off encryption 4) turn on checksum 5)if crc fails, clear FIFO and do not generate payloadReady interrupt*/
     Write_Reg(REG_PACKETCONFIG1, RF_PACKET1_ADRSFILTERING_NODE| RF_PACKET1_FORMAT_VARIABLE | RF_PACKET1_DCFREE_OFF | RF_PACKET1_CRC_ON | RF_PACKET1_CRCAUTOCLEAR_ON);
@@ -106,7 +108,7 @@ void RFM_69_init(struct RFM_69_desc_t *descriptor,
 }
 
 void RFM_69_service(){
-	/*called each cycle*/
+	/*ISSUE: need to be able to handle more than 66 bytes*/
 
 
 	/*checks the "payloadReady flag*/
@@ -114,43 +116,45 @@ void RFM_69_service(){
 		
 
 		/*must be in standby mode to read FIFO*/
-		SetMode(RF69_MODE_STANDBY)
+		SetMode(RF69_MODE_STANDBY);
 
-		/*disable interrupts*/
-		toggleInterrupts(0);
+		/*wait until in standby mode*/
+		while(Read_Reg(REG_IRQFLAGS1) != 0x80){
+			//IRQ_FLAGS1 == 0x80 means MODEREADY is true
+		}
 
 		/*first byte in the FIFO specifies the length of the message*/
-		payloadLength = Read_Reg(REG_FIFO);
+		uint8_t payloadLength = Read_Reg(REG_FIFO);
 		
 		if(payloadLength > 66){
-			payloadLength = 66;
+			uint8_t payloadLength = 66;
 			/*need to figure out how to handle larger packets, but 66 bytes should be plenty for our purposes */
 		}
 
 		/*FIFO currently: address byte, network byte, node byte DATA (what we want) */
 		dataLength = payloadLength - 3;
-		uint8_t[dataLength]
+		uint8_t data[dataLength + 2]; /*extra byte for RSSI reading and extra byte for null value (end of data)*/
 		for(uint8_t i = 0; i<dataLength; i++){
-			data[i] = Read_Reg(REG_FIFO)
+			data[i] = Read_Reg(REG_FIFO);
 
 		}
-		while(Read_Reg(Reg))
-		/*cap DATA with RSSI value*/
+
+		/* addding RSSI value and then capping with a null to indicate end of array*/
 		data[dataLength] = MeasureRSSI();
+		data[dataLength + 1] = 0;
 
 		/*go back to listening. No need to manually clear the FIFO, it's done for us by the hardware*/
 		SetMode(RF69_MODE_RX);
 
 		
 	}
-	//if there has been a packet recieved 
-	//start to read that package 
 
 	
 
 }
 
 uint8_t MeasureRSSI(){
+
 	/*initiate an RSSI reading*/
 	write_Reg(REG_RSSICONFIG, ( REG_RSSICONFIG | RF_RSSI_START)) 
 	
@@ -162,7 +166,8 @@ uint8_t MeasureRSSI(){
 
 
 void Write_Reg(uint8_t *address, uint8_t value){
-	/* writes to a register vs SPI*/
+	/*ISSUE: NEED TO SET UP SPI SETTINGS*/
+
 
 	//setting the r/w bit to write
 	address = (address || 0x80)
@@ -195,23 +200,25 @@ void Write_Reg(uint8_t *address, uint8_t value){
 	}
 
 
-void Read_Reg(uint8_t address){
-	/* writes to a register vs SPI*/
+uint8_t Read_Reg(uint8_t address){
+	/*ISSUE: NEED TO SET UP SPI SETTINGS*/
 
 	
-	address = (address & 0x7F)
-	sercom-spi :: sercom_spi_start(struct  *spi_inst,
-                               *trans_id, RFM_69_baudrate,
-                                cs_pin_group, cs_pin_mask,
-                                NULL, 0,
-                                * &address, 66)
+	uint8_t address = (address & 0x7F);
+	uint8_t inBuffer, *inBufferPointer;
+
+	if(
+	sercom_spi_start(struct *spi_inst, *trans_id, RFM_69_baudrate, cs_pin_group, cs_pin_mask, NULL, 0, inBufferPointer, 1) != 0)
+	{
+	   /*there has been an error in transmission*/
+	   exit(1);
+	}
 	
 
 	//checks to see if the transaction is done 
-	if (sercom-spi :: sercom_spi_transaction_done(struct sercom_spi_desc_t *spi_inst,  uint8_t trans_id) == 1 ){
-		//set nss as high 
-		//enable interupts 
-		sercom-spi :: sercom_spi_clear_transaction(struct sercom_spi_desc_t *spi_inst, uint8_t trans_id)
+	if (sercom_spi_transaction_done(struct sercom_spi_desc_t *spi_inst,  uint8_t trans_id) == 1 )
+		 sercom_spi_clear_transaction(struct sercom_spi_desc_t *spi_inst, uint8_t trans_id);
+		 return(inbuffer);
 
 
 	}
@@ -278,7 +285,6 @@ void SetMode(uint8_t opMode){
 	}
 
 }
-
 
 
 
